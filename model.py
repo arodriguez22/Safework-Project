@@ -75,6 +75,7 @@ class User(db.Model):
 	fname = db.Column(db.String(64), nullable=True)
 	lname = db.Column(db.String(64), nullable=True)
 	email = db.Column(db.String(256))
+	email2 = db.Column(db.String(256), nullable=True)
 	description = db.Column(db.String(512), nullable=True)
 	#Image Attachment Documentation at http://sqlalchemy-imageattach.readthedocs.io/en/1.1.0/
 	picture = db.Column(db.String(256), nullable=True)
@@ -84,11 +85,14 @@ class User(db.Model):
 	user_type_secondary = db.Column(db.String(256), nullable=True)
 	tagline = db.Column(db.String(100), nullable=True)
 	location = db.Column(db.String(50), nullable=True)
+	user_type = db.Column(db.String(50), default="regular")
+	timezone = db.Column(db.String(48))
+	phone = db.Column(db.String(28), nullable=True)
 
 	def __repr__(self):
 		"""Provide helpful representation when printed."""
-		return "<user_id={} password={} username={} fname={} lname={} email={} description={} picture={} created_at={} edited_at={} user_type_main={} user_type_secondary={}> tagline={} location={}>".format(
-			self.user_id, self.password, self.username, self.fname, self.lname, self.email, self.description, self.picture, self.created_at, self.edited_at, self.user_type_main, self.user_type_secondary, self.tagline, self.location)
+		return "<user_id={} password={} username={} fname={} lname={} email={} description={} picture={} created_at={} edited_at={} user_type_main={} user_type_secondary={}> tagline={} location={} user_type={}>".format(
+			self.user_id, self.password, self.username, self.fname, self.lname, self.email, self.description, self.picture, self.created_at, self.edited_at, self.user_type_main, self.user_type_secondary, self.tagline, self.location, self.user_type)
 
 
 class Incident(db.Model):
@@ -180,6 +184,7 @@ class Like(db.Model):
 	user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'))
 	post_id = db.Column(db.Integer, db.ForeignKey('posts.post_id'))
 	like_dislike = db.Column(db.String(24))
+
 	def __repr__(self):
 		"""Provide helpful representation when printed."""
 		return "<like_id={} user_id={} post_id={} like_dislike={}>".format(
@@ -199,17 +204,17 @@ class Flag(db.Model):
 		"""Provide helpful representation when printed."""
 		return "<flag_id={} user_id={} post_id={} flag_type={}>".format(
 			self.flag_id, self.user_id, self.post_id, self.flag_type)
-
+ 
 class Contact(db.Model):
 	"""SafeWalk Contacts"""
 
-		__tablename__ = "contacts"
+	__tablename__ = "contacts"
 
 	contact_id = db.Column(db.Integer, autoincrement=True, primary_key=True)
 	user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'))
 	name = db.Column(db.String(96))
 	email = db.Column(db.String(200), nullable=True)
-	phone = db.Column(db.Integer, nullable=True)
+	phone = db.Column(db.String(48), nullable=True)
 	c_type = db.Column(db.String(48), nullable=True)
 	c_message = db.Column(db.String(1028), nullable=True)
 
@@ -217,6 +222,88 @@ class Contact(db.Model):
 		"""Provide helpful representation when printed."""
 		return "<contact_id={} user_id={} name={} email={} phone={} c_type={} c_message={}>".format(
 			self.contact_id, self.user_id, self.name, self.email, self.phone, self.c_type, self.c_message)
+
+class AlertSet(db.Model):
+	"""SafeWalk AlertSet"""
+
+	__tablename__ = "alertsets"
+
+	alert_set_id = db.Column(db.Integer, autoincrement=True, primary_key=True)
+	user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'))
+	a_name = db.Column(db.String(96))
+	a_desc = db.Column(db.String(200), nullable=True)
+	start_time = db.Column(db.Time, nullable=True)
+	date = db.Column(db.Date, nullable=True)
+	notes = db.Column(db.String(2056), nullable=True)
+	interval = db.Column(db.Integer, nullable=True)
+
+	def __repr__(self):
+		"""Provide helpful representation when printed."""
+		return "<alert_set_id={} user_id={} a_name={} a_desc={} start_time={} date={} timezone={} notes={}>".format(
+			self.alert_set_id, self.user_id, self.a_name, self.a_desc, self.start_time, self.date, self.timezone, self.notes)
+
+class Alert(db.Model):
+	"""SafeWalk AlertSet"""
+
+	__tablename__ = "alerts"
+
+	alert_id = db.Column(db.Integer, autoincrement=True, primary_key=True)
+	alert_set_id = db.Column(db.Integer, db.ForeignKey('alertsets.alert_set_id'))
+	user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'))
+	contact_id1 = db.Column(db.Integer, db.ForeignKey('contacts.contact_id'))
+	contact_id2 = db.Column(db.Integer, db.ForeignKey('contacts.contact_id'), nullable=True)
+	contact_id3 = db.Column(db.Integer, db.ForeignKey('contacts.contact_id'), nullable=True)
+	active = db.Column(db.Boolean, default=False)
+	sent = db.Column(db.Boolean, default=False)
+	time = db.Column(db.Time, nullable=True)
+	date = db.Column(db.Date, nullable=True)
+	interval = db.Column(db.Integer, nullable=True)
+	start_time = db.Column(db.DateTime, nullable=True)
+	message = db.Column(db.String(1028), nullable=True)
+
+	def __repr__(self):
+		"""Provide helpful representation when printed."""
+		return "<alert_id={} alert_set_id={} user_id={} contact_id1={} contact_id2={} contact_id3={} active={} sent={} time={} date={} start_time={} message={}>".format(
+			self.alert_id, self.alert_set_id, self.user_id, self.contact_id1, self.contact_id2, self.contact_id3, self.active, self.sent, self.time, self.date, self.start_time, self.message)
+
+class CheckIn(db.Model):
+	"""SafeWalk Check-Ins"""
+
+	__tablename__ = "checkins"
+
+	check_in_id = db.Column(db.Integer, autoincrement=True, primary_key=True)
+	user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'))
+	notes = db.Column(db.String(2056), nullable=True)
+	address = db.Column(db.String(512), nullable=True)
+	time = db.Column(db.Time, nullable=True)
+	date = db.Column(db.Date, nullable=True)
+	lat = db.Column(db.String(256), nullable=True)
+	lon = db.Column(db.String(256), nullable=True)
+
+	def __repr__(self):
+		"""Provide helpful representation when printed."""
+		return "<check_in_id={} user_id={} notes={} address={} time={} date={} lat={} lon={}>".format(
+			self.check_in_id, self.user_id, self.notes, self.address, self.time, self.date, self.lat, self.lon)
+
+class ReqCheck(db.Model):
+	"""Required SafeWalk Check-Ins"""
+
+	__tablename__ = "reqchecks"
+
+	req_check_id = db.Column(db.Integer, autoincrement=True, primary_key=True)
+	user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'))
+	check_in_id = db.Column(db.Integer, db.ForeignKey('checkins.check_in_id'), nullable=True)
+	alert_id = db.Column(db.Integer, db.ForeignKey('alerts.alert_id'))
+	alert_set_id = db.Column(db.Integer, db.ForeignKey('alertsets.alert_set_id'))
+	time = db.Column(db.Time, nullable=True)
+	date = db.Column(db.Date, nullable=True)
+	checked = db.Column(db.Boolean, nullable=True)
+
+
+	def __repr__(self):
+		"""Provide helpful representation when printed."""
+		return "<req_check_id={} user_id={} check_in_id={} alert_id={} alert_set_id={} time={} date={} checked={}>".format(
+			self.req_check_id, self.user_id, self.check_in_id, self.alert_id, self.alert_set_id, self.time, self.date, self.checked)
 
 ################################################################################
 

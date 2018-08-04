@@ -16,7 +16,7 @@ from flask import (Flask, render_template, redirect, request, flash,
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import (update, asc, desc)
-from model import Forum, Post, User, Incident, Police, Source, Like, Flag, connect_to_db, db
+from model import Forum, Post, User, Incident, Police, Source, Like, Flag, Contact, AlertSet, Alert, CheckIn, ReqCheck, connect_to_db, db
 import requests
 # from secrets_env import CLIENT_ID
 
@@ -103,6 +103,8 @@ def register_process():
     location = ""
     #Sets variables equal to the form values
     email_input = request.form['email_input']
+    email2 = request.form['email_input2']
+    phone = request.form['phone']
     pw_input = request.form['password'].encode('utf-8')
     username = request.form['username']
     tagline = request.form['tagline']
@@ -110,6 +112,7 @@ def register_process():
     hashed_word = bcrypt.hashpw(pw_input, bcrypt.gensalt())
     user_type = request.form['user_type']
     second_type = request.form['2nd']
+    timezone = request.form['timezone']
 
     """Checks to make sure values exist in the optional fields
                 before setting the variables equal to the form values"""
@@ -149,7 +152,8 @@ def register_process():
     else:
         new_user = User(email=email_input, password=hashed_word, username=username, fname=fname,
                         lname=lname, description=about_me, user_type_main=user_type,
-                        user_type_secondary=second_type, tagline=tagline, location=location)
+                        user_type_secondary=second_type, tagline=tagline, location=location,
+                        email2=email2, phone=phone, timezone=timezone)
         db.session.add(new_user)
         db.session.commit()
         #Code isn't working:
@@ -702,7 +706,7 @@ def edit_page():
     user = User.query.filter_by(email=session['current_user']).one()
 
     return render_template("edit_profile.html", email=user.email, username=user.username,
-                           fname=user.fname, lname=user.lname, about_me=user.description)
+                           fname=user.fname, lname=user.lname, about_me=user.description, user=user)
 
 
 
@@ -720,6 +724,9 @@ def edit_profile():
     location = request.form['location']
     lname = request.form['lname']
     about_me = request.form['about_me']
+    email2 = request.form['email_input2']
+    phone = request.form['phone']
+    timezone = request.form['timezone']
     user = User.query.filter_by(email=session['current_user']).one()
 
     #Checks that the password matches the user's password. If so, updates the user's info
@@ -727,7 +734,8 @@ def edit_profile():
         (db.session.query(User).filter(
             User.email == session['current_user'], User.password == pw_input).update(
                 {'fname': fname, 'lname': lname, 'email': email_input, 'password': new_password,
-                 'username': username, 'description': about_me}))
+                 'username': username, 'description': about_me, 'email2': email2, 'phone': phone,
+                 'timezone': timezone}))
         db.session.commit()
         flash('Your Profile was Updated!')
         return redirect("/profile")
@@ -735,9 +743,7 @@ def edit_profile():
     #Otherwise, it flashes a message and redirects to the login page
     else:
         flash('Your e-mail or password was incorrect! Please try again or Register.')
-        return render_template("edit_profile.html", email=user.email, username=user.username,
-                               fname=user.fname, tagline=user.tagline, location=user.location,
-                               lname=user.lname, about_me=user.description)
+        return redirect("/edit_profile")
 
 @app.route("/contact")
 def contact_us():
@@ -748,16 +754,135 @@ def resources():
     return render_template("resources.html")
 
 @app.route("/sw_main")
-def sw_main():
+def safewalk_main():
     return render_template("safewalk_main.html")
 
-@app.route("/sw_setup")
-def sw_setup():
-    return render_template("safewalk_setup.html")
+@app.route("/rec_alerts")
+def recurring_alerts():
+    user = User.query.filter_by(email=session['current_user']).one()
+    contacts = Contact.query.filter_by(user_id=user.user_id).order_by(asc(Contact.contact_id)).all()
+    return render_template("recurring_alerts.html", contacts=contacts)
 
+@app.route("/sched_alerts")
+def scheduled_alerts():
+    user = User.query.filter_by(email=session['current_user']).one()
+    contacts = Contact.query.filter_by(user_id=user.user_id).order_by(asc(Contact.contact_id)).all()
+    return render_template("scheduled_alerts.html", contacts=contacts)
+
+
+@app.route("/contacts")
+def user_contacts():
+    user = User.query.filter_by(email=session['current_user']).one()
+    contacts = Contact.query.filter_by(user_id=user.user_id).order_by(asc(Contact.contact_id)).all()
+    return render_template("contacts.html", contacts=contacts)
+
+@app.route("/contacts", methods=["POST"])
+def add_contact():
+    name = request.form['name']
+    phone = request.form['phone']
+    email = request.form['email']
+    c_type = request.form['c_type']
+    message = request.form['message']
+    user = User.query.filter_by(email=session['current_user']).one()
+    new_contact = Contact(user_id=user.user_id, name=name, email=email, phone=phone, c_type=c_type, c_message=message)
+    db.session.add(new_contact)
+    db.session.commit()
+    return redirect("/contacts")
+
+@app.route("/del_contact/<contact_num>")
+def delete_contact(contact_num):
+    contact = Contact.query.filter_by(contact_id=contact_num).one()
+    db.session.delete(contact)
+    db.session.commit()
+    return redirect("/contacts")
+
+@app.route("/edit_contact/<contact_num>", methods=["POST"])
+def edit_contact(contact_num):
+    name = request.form['name']
+    phone = request.form['phone']
+    email = request.form['email']
+    c_type = request.form['c_type']
+    message = request.form['message']
+    contact = Contact.query.filter_by(contact_id=contact_num).one()
+    ((db.session.query(Contact).filter_by(contact_id=contact_num)).update(
+    {'name':name, 'email':email, 'phone':phone, 'c_type':c_type, 'c_message':message}))
+    db.session.commit()
+    return redirect("/contacts")
+
+@app.route("/add_recset", methods=["POST"])
+def add_rec_alertset():
+    name = request.form['set_name']
+    desc = request.form['descri']
+    interval = request.form['interval']
+    contacts = request.form.getlist('contact')
+    user = User.query.filter_by(email=session['current_user']).one()
+    new_alert_set = AlertSet(user_id=user.user_id, a_name=name, a_desc=desc, interval=interval)
+    db.session.add(new_alert_set)
+    db.session.commit()
+    alert_set = AlertSet.query.filter(AlertSet.user_id==user.user_id and AlertSet.a_name==name).first()
+    contact1 = int(contacts[0])
+    contact2 = None
+    contact3 = None
+    if len(contacts) > 1:
+        contact2 = int(contacts[1])
+    if len(contacts) > 2:
+        contact3 = int(contacts[2])    
+    new_alert = Alert(alert_set_id=alert_set.alert_set_id, user_id=user.user_id, contact_id1=contact1,
+                      contact_id2=contact2, contact_id3=contact3, interval=interval, message=desc)
+    db.session.add(new_alert)
+    db.session.commit()
+    return redirect("/rec_alerts")
+
+@app.route("/add_schedset", methods=["POST"])
+def add_sched_alertset():
+    name = request.form['set_name']
+    desc = request.form['descri']
+    user = User.query.filter_by(email=session['current_user']).one()
+    new_alert_set = AlertSet(user_id=user.user_id, a_name=name, a_desc=desc)
+    db.session.add(new_alert_set)
+    db.session.commit()
+    alert_set = AlertSet.query.filter(AlertSet.user_id==user.user_id and AlertSet.a_name==name).first()
+    return redirect("/edit_schedset/" + str(alert_set.alert_set_id))
+
+@app.route("/edit_schedset/<alert_set_id>")
+def edit_schedset_page(alert_set_id):
+    user = User.query.filter_by(email=session['current_user']).one()
+    alert_set = AlertSet.query.filter_by(alert_set_id=alert_set_id).one()
+    contacts = Contact.query.filter_by(user_id=user.user_id).order_by(asc(Contact.contact_id)).all()
+    return render_template("edit_sched_alerts.html", alert_set=alert_set, contacts=contacts)
+
+# @app.route("/add_schedset", methods=["POST"])
+# def add_sched_alertset():
+#     name = request.form['set_name']
+#     desc = request.form['descri']
+#     timezone = request.form['timezone']
+
+#     contacts = request.form.getlist('contact')
+#     date = request.form['date']
+#     if not date:
+#         date = None
+#     time = request.form['time']
+
+#     user = User.query.filter_by(email=session['current_user']).one()
+#     new_alert_set = AlertSet(user_id=user.user_id, a_name=name, a_desc=desc, date=date, timezone=timezone)
+#     db.session.add(new_alert_set)
+#     db.session.commit()
+#     alert_set = AlertSet.query.filter(AlertSet.user_id==user.user_id and AlertSet.a_name==name).first()
+#     contact1 = int(contacts[0])
+#     contact2 = None
+#     contact3 = None
+#     if len(contacts) > 1:
+#         contact2 = int(contacts[1])
+#     if len(contacts) > 2:
+#         contact3 = int(contacts[2])    
+#     new_alert = Alert(alert_set_id=alert_set.alert_set_id, user_id=user.user_id, contact_id1=contact1,
+#                       contact_id2=contact2, contact_id3=contact3, interval=interval, message=desc)
+#     db.session.add(new_alert)
+#     db.session.commit()
+#     return redirect("/sched_alerts")
 #####################################################
 
 if __name__ == "__main__":
     connect_to_db(app, 'postgresql:///safework')
     print "Connected to DB."
-    app.run()
+    app.run(debug=True)

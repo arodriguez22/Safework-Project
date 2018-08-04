@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Alert Set{% endblock %}
+{% block head %}
+
+{% endblock %}
+{% block content %}
+<h1 style="text-align: center;">New Scheduled Alert Set</h1>
+<div class="gen_div">
+<form action="/add_schedset" method="POST">
+	<b>What would you like to name this alert set?:</b> <input type=textbox name="set_name" required></input><br>
+	<b>Where are you going and/or what are you doing that you might need this alert?</b><br>
+	<textarea rows="2" cols="50" name="descri"></textarea><br><br>
+	<button type="submit">Create Alert Set</button>
+</form>
+
+{% endblock %}
