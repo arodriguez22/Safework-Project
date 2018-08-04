@@ -239,8 +239,8 @@ class AlertSet(db.Model):
 
 	def __repr__(self):
 		"""Provide helpful representation when printed."""
-		return "<alert_set_id={} user_id={} a_name={} a_desc={} start_time={} date={} timezone={} notes={}>".format(
-			self.alert_set_id, self.user_id, self.a_name, self.a_desc, self.start_time, self.date, self.timezone, self.notes)
+		return "<alert_set_id={} user_id={} a_name={} a_desc={} start_time={} date={} notes={}>".format(
+			self.alert_set_id, self.user_id, self.a_name, self.a_desc, self.start_time, self.date, self.notes)
 
 class Alert(db.Model):
 	"""SafeWalk AlertSet"""
